@@ -27,6 +27,12 @@ export interface Task extends ExternalSyncFields {
   scheduledDate: string;
   /** Actual/planned start timestamp, when known. */
   scheduledAt: string | null;
+  /** Official request/open timestamp used for operational aging. */
+  requestDate?: string | null;
+  /** Raw official assignment fields when Sytex exposes them. */
+  assignedTo?: string | null;
+  collaborator?: string | null;
+  contractor?: string | null;
   siteId: string;
   siteCode: string;
   zoneId: string;

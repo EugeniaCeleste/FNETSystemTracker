@@ -1,15 +1,293 @@
-// Minimal Prisma infrastructure for the foundation. Gino owns this file and
-// the full business data model (see docs/WORK_SPLIT.md) — do not add models
-// here as part of unrelated work.
-//
-// The prototype must run without DATABASE_URL set; nothing in the app
-// depends on this schema yet.
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+model correctivos {
+  id                              BigInt    @id @default(autoincrement())
+  codigo                          String    @unique
+  codigo_remoto                   String?
+  nombre                          String?
+  descripcion                     String?
+  plantilla                       String?
+  proyecto                        String?
+  tarea                           String?
+  estado                          String?
+  cliente                         String?
+  elemento_red                    String?
+  codigos_sitios_afectados        String?
+  nombres_sitios_afectados        String?
+  atributos                       String?
+  solicitado_por                  String?
+  contratista_asignado            String?
+  usuarios_responsables_proveedor String?
+  asignado_a                      String?
+  usuario_colaborador             String?
+  revisado_por                    String?
+  notas                           String?
+  fecha_plan                      DateTime? @db.Timestamptz(6)
+  creado_el                       DateTime? @db.Timestamptz(6)
+  abierto_el                      DateTime? @db.Timestamptz(6)
+  en_proceso_el                   DateTime? @db.Timestamptz(6)
+  en_revision_el                  DateTime? @db.Timestamptz(6)
+  enviado_el                      DateTime? @db.Timestamptz(6)
+  rechazado_el                    DateTime? @db.Timestamptz(6)
+  comentarios_rechazo             String?
+  tipo_rechazo                    String?
+  cantidad_rechazos               Int?
+  respuestas_rechazadas           String?
+  cancelado_el                    DateTime? @db.Timestamptz(6)
+  comentarios_cancelacion         String?
+  aprobado_con_pendientes_el      DateTime? @db.Timestamptz(6)
+  aprobado_con_pendientes_por     String?
+  aprobado_el                     DateTime? @db.Timestamptz(6)
+  comentarios_aprobacion          String?
+  aprobado_por                    String?
+  enlace                          String?
+  sytex_tipo                      String    @default("correctivo")
+  sytex_proyecto_id               Int?
+  sincronizado_el                 DateTime  @default(now()) @db.Timestamptz(6)
+  raw_data                        Json      @default("{}")
+  creado_bd                       DateTime  @default(now()) @db.Timestamptz(6)
+  actualizado_bd                  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([codigos_sitios_afectados], map: "idx_correctivos_codigo_sitio")
+  @@index([estado], map: "idx_correctivos_estado")
+  @@index([fecha_plan], map: "idx_correctivos_fecha_plan")
+  @@index([proyecto], map: "idx_correctivos_proyecto")
+}
+
+model cotizaciones {
+  id                       BigInt    @id @default(autoincrement())
+  codigo                   String    @unique
+  nombre                   String?
+  tipo                     String?
+  estado                   String?
+  codigo_tarea             String?
+  nombre_tarea             String?
+  estado_tarea             String?
+  proyecto                 String?
+  subproyecto              String?
+  elemento_red             String?
+  nombre_elemento_red      String?
+  codigo_sitio             String?
+  nombre_sitio             String?
+  divisa                   String?
+  proveedor                String?
+  presupuesto              Decimal?  @db.Decimal(18, 2)
+  total                    Decimal?  @db.Decimal(18, 2)
+  comentarios              String?
+  creado_por               String?
+  fecha_creacion           DateTime? @db.Timestamptz(6)
+  aprobador                String?
+  fecha_aprobacion         DateTime? @db.Timestamptz(6)
+  fecha_rechazo            DateTime? @db.Timestamptz(6)
+  comentarios_rechazo      String?
+  fecha_procesada          DateTime? @db.Timestamptz(6)
+  pasos_aprobacion_activos String?
+  campos_adicionales       String?
+  enlace                   String?
+  sytex_tipo               String    @default("qo_correctivo")
+  sytex_proyecto_id        Int?
+  sincronizado_el          DateTime  @default(now()) @db.Timestamptz(6)
+  raw_data                 Json      @default("{}")
+  creado_bd                DateTime  @default(now()) @db.Timestamptz(6)
+  actualizado_bd           DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([codigo_sitio], map: "idx_cotizaciones_codigo_sitio")
+  @@index([codigo_tarea], map: "idx_cotizaciones_codigo_tarea")
+  @@index([estado], map: "idx_cotizaciones_estado")
+  @@index([fecha_creacion], map: "idx_cotizaciones_fecha_creacion")
+}
+
+model insumos {
+  id                BigInt    @id @default(autoincrement())
+  formulario        String
+  codigo_sitio      String?
+  nombre_sitio      String?
+  elemento_red      String?
+  estado            String?
+  grupo             String?
+  indice            String?
+  cantidad          Decimal?  @db.Decimal(18, 3)
+  descripcion       String?
+  provisto_por      String?
+  imagen            String?
+  ultima_edicion_el DateTime? @db.Timestamptz(6)
+  sincronizado_el   DateTime  @default(now()) @db.Timestamptz(6)
+  raw_data          Json      @default("{}")
+  creado_bd         DateTime  @default(now()) @db.Timestamptz(6)
+  actualizado_bd    DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([formulario, grupo, indice], map: "uq_insumo_sytex")
+  @@index([codigo_sitio], map: "idx_insumos_codigo_sitio")
+  @@index([descripcion], map: "idx_insumos_descripcion")
+  @@index([formulario], map: "idx_insumos_formulario")
+  @@index([provisto_por], map: "idx_insumos_provisto_por")
+}
+
+model preventivos {
+  id                              BigInt    @id @default(autoincrement())
+  codigo                          String    @unique
+  nombre                          String?
+  descripcion                     String?
+  plantilla                       String?
+  proyecto                        String?
+  tarea                           String?
+  estado                          String?
+  elemento_red                    String?
+  codigos_sitios_afectados        String?
+  nombres_sitios_afectados        String?
+  atributos                       String?
+  solicitado_por                  String?
+  contratista_asignado            String?
+  usuarios_responsables_proveedor String?
+  asignado_a                      String?
+  usuario_colaborador             String?
+  revisado_por                    String?
+  fecha_plan                      DateTime? @db.Timestamptz(6)
+  creado_el                       DateTime? @db.Timestamptz(6)
+  abierto_el                      DateTime? @db.Timestamptz(6)
+  en_proceso_el                   DateTime? @db.Timestamptz(6)
+  en_revision_el                  DateTime? @db.Timestamptz(6)
+  enviado_el                      DateTime? @db.Timestamptz(6)
+  aprobado_el                     DateTime? @db.Timestamptz(6)
+  rechazado_el                    DateTime? @db.Timestamptz(6)
+  cancelado_el                    DateTime? @db.Timestamptz(6)
+  comentarios_rechazo             String?
+  tipo_rechazo                    String?
+  cantidad_rechazos               Int?
+  respuestas_rechazadas           String?
+  comentarios_cancelacion         String?
+  comentarios_aprobacion          String?
+  aprobado_por                    String?
+  notas                           String?
+  enlace                          String?
+  sytex_tipo                      String    @default("preventivo")
+  sytex_proyecto_id               Int?
+  sincronizado_el                 DateTime  @default(now()) @db.Timestamptz(6)
+  raw_data                        Json      @default("{}")
+  creado_bd                       DateTime  @default(now()) @db.Timestamptz(6)
+  actualizado_bd                  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([codigos_sitios_afectados], map: "idx_preventivos_codigo_sitio")
+  @@index([estado], map: "idx_preventivos_estado")
+  @@index([fecha_plan], map: "idx_preventivos_fecha_plan")
+  @@index([proyecto], map: "idx_preventivos_proyecto")
+}
+
+model cargas_combustible_ge {
+  id                BigInt    @id @default(autoincrement())
+  formulario        String
+  codigo_tarea      String?
+  codigo_sitio      String?
+  nombre_sitio      String?
+  elemento_red      String?
+  estado            String?
+  origen            String
+  tipo_formulario   String?
+  clave_origen      String
+  combustible       String?
+  tanque            String?
+  litros_cargados   Decimal?  @db.Decimal(18, 3)
+  nivel_antes       Decimal?  @db.Decimal(8, 3)
+  nivel_final       Decimal?  @db.Decimal(8, 3)
+  horometro         Decimal?  @db.Decimal(18, 3)
+  ge_en_marcha      Boolean?
+  fecha_evento      DateTime? @db.Timestamptz(6)
+  ultima_edicion_el DateTime? @db.Timestamptz(6)
+  sincronizado_el   DateTime  @default(now()) @db.Timestamptz(6)
+  raw_data          Json      @default("{}")
+  creado_bd         DateTime  @default(now()) @db.Timestamptz(6)
+  actualizado_bd    DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([formulario, origen, clave_origen], map: "uq_carga_combustible_ge")
+  @@index([fecha_evento], map: "idx_cargas_ge_fecha")
+  @@index([formulario], map: "idx_cargas_ge_formulario")
+  @@index([origen], map: "idx_cargas_ge_origen")
+  @@index([codigo_sitio], map: "idx_cargas_ge_sitio")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model insumos_backup_20260909 {
+  id                BigInt?
+  formulario        String?
+  codigo_sitio      String?
+  nombre_sitio      String?
+  elemento_red      String?
+  estado            String?
+  grupo             String?
+  indice            String?
+  cantidad          Decimal?  @db.Decimal(18, 3)
+  descripcion       String?
+  provisto_por      String?
+  imagen            String?
+  ultima_edicion_el DateTime? @db.Timestamptz(6)
+  sincronizado_el   DateTime? @db.Timestamptz(6)
+  raw_data          Json?
+  creado_bd         DateTime? @db.Timestamptz(6)
+  actualizado_bd    DateTime? @db.Timestamptz(6)
+
+  @@ignore
+}
+
+model pendientes_visita {
+  id                 BigInt    @id @default(autoincrement())
+  formulario         String
+  origen_fuente      String
+  codigo_sitio       String?
+  nombre_sitio       String?
+  elemento_red       String?
+  estado             String?
+  grupo              String?
+  indice             String?
+  pregunta           String?
+  respuesta          String?
+  comentarios        String?
+  posible_pendiente  Boolean?  @default(true)
+  ultima_edicion_el  DateTime? @db.Timestamptz(6)
+  ultima_edicion_por String?
+  sincronizado_el    DateTime? @default(now()) @db.Timestamptz(6)
+  clave_origen       String
+  estado_pendiente   String    @default("PENDIENTE")
+
+  @@unique([formulario, origen_fuente, clave_origen], map: "uq_pendientes_visita_sync")
+  @@index([origen_fuente], map: "idx_pendientes_visita_origen")
+  @@index([codigo_sitio], map: "idx_pendientes_visita_sitio")
+}
+
+/// FNET-owned assignment state. It intentionally has no foreign key to Sytex tables.
+model task_assignments {
+  id                       BigInt   @id @default(autoincrement())
+  task_type                String
+  task_code                String
+  technician_primary       String
+  technician_collaborator  String
+  assigned_at              DateTime @default(now()) @db.Timestamptz(6)
+  assigned_by              String
+  updated_at               DateTime @updatedAt @db.Timestamptz(6)
+  active                   Boolean  @default(true)
+
+  @@unique([task_type, task_code], map: "uq_fnet_task_assignment_task")
+  @@index([task_type, active], map: "idx_fnet_task_assignment_active")
+  @@map("task_assignments")
+}
+
+/// FNET-owned audit trail for changes to task_assignments.
+model task_assignment_history {
+  id                        BigInt   @id @default(autoincrement())
+  task_type                 String
+  task_code                 String
+  previous_technician_primary      String?
+  previous_technician_collaborator String?
+  new_technician_primary           String
+  new_technician_collaborator      String
+  changed_at                DateTime @default(now()) @db.Timestamptz(6)
+  changed_by                String
+
+  @@index([task_type, task_code, changed_at], map: "idx_fnet_task_assignment_history_task")
+  @@map("task_assignment_history")
 }
