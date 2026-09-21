@@ -6,6 +6,7 @@ import type { UserScope } from "./organization";
 import type { Task } from "./task";
 import type { Technician } from "./technician";
 import type { Vehicle } from "./vehicle";
+import type { MaxTrackerDrivingEvent, MaxTrackerDrivingProfile } from "./maxtracker";
 
 export type SourceOwnership = "SYTEX" | "BIZFLOW" | "MAXTRACKER" | "INTRAOPERATIVA" | "OPPEN";
 
@@ -34,6 +35,8 @@ export interface BizFlowAdapter {
 export interface MaxTrackerAdapter {
   readonly source: "MAXTRACKER";
   getVehiclesForScope(scope: UserScope): Promise<readonly Vehicle[]>;
+  getDrivingProfilesForScope(scope: UserScope): Promise<readonly MaxTrackerDrivingProfile[]>;
+  getDrivingEventsForScope(scope: UserScope): Promise<readonly MaxTrackerDrivingEvent[]>;
 }
 
 export interface IntraoperativaAdapter {

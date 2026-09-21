@@ -58,7 +58,7 @@ export interface ScopedCrewLike {
   floaterId?: string;
 }
 
-export interface ScopedVehicleLike {
+export interface ScopedVehicleLike extends ScopedEntity {
   assignedTechnicianId: string | null;
 }
 
@@ -94,7 +94,11 @@ export function filterVehiclesForScope<T extends ScopedVehicleLike, TTechnician 
   resourceForZone: (zoneId: string, technicianIds: string[]) => ScopedEntity,
 ): T[] {
   return vehicles.filter((vehicle) => {
-    if (!vehicle.assignedTechnicianId) return scope.role === UserRole.ADMIN;
+    if (!vehicle.assignedTechnicianId) {
+      // Unassigned vehicles are scoped by their explicit MaxTracker hierarchy;
+      // they are never attributed to a technician implicitly.
+      return scope.role === UserRole.ADMIN || (scope.role !== UserRole.TECHNICIAN && scopeAllowsResource(scope, vehicle));
+    }
     const technician = technicians.find((item) => item.id === vehicle.assignedTechnicianId);
     if (!technician) return false;
     const zoneId = technician.onLoanZoneId ?? technician.primaryZoneId;

@@ -6,7 +6,7 @@ import { mockGuards } from "@/mocks/guards";
 import { hierarchyForZone, scopedResourceForZone } from "@/mocks/national";
 import { mockTasks } from "@/mocks/tasks";
 import { mockTechnicians } from "@/mocks/technicians";
-import { mockVehicles } from "@/mocks/vehicles";
+import { mockMaxTrackerDrivingEvents, mockMaxTrackerDrivingProfiles, mockVehicles } from "@/mocks/vehicles";
 import { mockBizFlowResources, mockEmploymentRecords, mockLeaveRecords, mockWorkdayRecords } from "@/mocks/bizflow";
 import type { BizFlowAdapter, IntraoperativaAdapter, MaxTrackerAdapter, OppenAdapter, SytexAdapter } from "@/contracts/source-adapters";
 import { buildGuardSegments } from "@/lib/guard-duty-rules";
@@ -68,6 +68,16 @@ export class MockMaxTrackerAdapter implements MaxTrackerAdapter {
   readonly source = "MAXTRACKER" as const;
   async getVehiclesForScope(scope: UserScope): Promise<readonly Vehicle[]> {
     return filterVehiclesForScope(mockVehicles, mockTechnicians, scope, scopedResourceForZone);
+  }
+  async getDrivingProfilesForScope(scope: UserScope) {
+    const vehicles = await this.getVehiclesForScope(scope);
+    const technicianIds = new Set(vehicles.flatMap((vehicle) => vehicle.assignedTechnicianId ? [vehicle.assignedTechnicianId] : []));
+    return mockMaxTrackerDrivingProfiles.filter((profile) => scope.role === "ADMIN" || technicianIds.has(profile.technicianId));
+  }
+  async getDrivingEventsForScope(scope: UserScope) {
+    const vehicles = await this.getVehiclesForScope(scope);
+    const vehicleIds = new Set(vehicles.map((vehicle) => vehicle.id));
+    return mockMaxTrackerDrivingEvents.filter((event) => vehicleIds.has(event.vehicleId));
   }
 }
 

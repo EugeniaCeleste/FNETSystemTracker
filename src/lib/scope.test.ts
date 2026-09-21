@@ -76,7 +76,7 @@ describe("national role scopes", () => {
     const coordinatorCrews = filterCrewsForScope(mockCrews, coordinatorScope);
     expect(coordinatorVehicles.every((vehicle) => {
       const technician = mockTechnicians.find((item) => item.id === vehicle.assignedTechnicianId);
-      return technician ? coordinatorScope.zoneIds.includes(technician.onLoanZoneId ?? technician.primaryZoneId) : false;
+      return technician ? coordinatorScope.zoneIds.includes(technician.onLoanZoneId ?? technician.primaryZoneId) : coordinatorScope.zoneIds.includes(vehicle.zoneId!);
     })).toBe(true);
     expect(coordinatorGuards.every((guard) => coordinatorScope.zoneIds.includes(guard.zoneId))).toBe(true);
     expect(coordinatorCrews.every((crew) => coordinatorScope.zoneIds.includes(crew.zoneId))).toBe(true);

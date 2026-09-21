@@ -8,6 +8,7 @@ export * from "./site";
 export * from "./task";
 export * from "./guard";
 export * from "./vehicle";
+export * from "./maxtracker";
 export * from "./synced-data";
 export * from "./technician-kpi";
 export * from "./technician-diagnostic";

@@ -325,6 +325,62 @@ mantiene `MOBILE_NAV_OPEN=PASS`, `MOBILE_NAV_CLOSE=PASS` y
 `PRODUCTION_TOUCHED=NO`
 `NEXT_ACTION=WAIT_FOR_TECHNICAL_REVIEW`
 
+## P1-T03-UI-R1 — MaxTracker vehículos y conducción
+
+Se implementó la primera vista mock-first de MaxTracker en la rama
+`euge/p1-t03-maxtracker-ui`, manteniendo `P1-T02_STATUS=CLOSED_TESTING_CERTIFIED`.
+La pantalla de vehículos consume fixtures solo en modo demo explícito y en
+modo real muestra ausencia de datos oficiales porque todavía no existe
+integración live.
+
+MaxTracker queda representado mediante contratos de vehículos, jerarquía
+explícita de alcance, perfiles de conducción y eventos. El adapter mock expone
+esos datos con métodos reemplazables por una futura integración. Los vehículos
+sin asignación no reciben conductor por inferencia: pueden ser visibles para
+coordinación/gerencia únicamente si su organización/región/zona/base explícita
+está dentro del `UserScope`, y conservan el estado `SIN VEHÍCULO ASIGNADO`.
+
+La UI cubre roles técnico, coordinador, manager y admin, filtros, KPIs,
+detalle de vehículo, kilometraje, estado, score, faltas, excesos e historial
+de eventos. No muestra flota global a un técnico ni datos demo mezclados con
+el modo real.
+
+`P1_T03_UI_STARTED=YES`
+
+`P1_T03_UI_R1_STATUS=IMPLEMENTED_MOCK_FIRST_WAITING_REVIEW`
+
+`P1_T03_UI_STATUS=IMPLEMENTED_MOCK_FIRST_WAITING_REVIEW`
+
+`EXISTING_VEHICLE_UI_AUDIT=PASS`
+
+`VEHICLE_VIEW_IMPLEMENTED=YES`
+
+`DRIVING_VIEW_IMPLEMENTED=YES`
+
+`SHARED_CONTRACT_CHANGE=YES`
+
+`BACKEND_HANDOFF_REQUIRED=YES`
+
+`FINAL_TESTS=122/122`
+
+`TSC=PASS`
+
+`ESLINT=PASS`
+
+`BUILD=PASS`
+
+`MOBILE_VISUAL_CERTIFICATION=NOT_MEASURED_MANUAL_RETEST_REQUIRED`
+
+`MAXTRACKER_LIVE_USED=NO`
+
+`DATABASE_WRITTEN=NO`
+
+`MIGRATIONS_RUN=NO`
+
+`PRODUCTION_TOUCHED=NO`
+
+`NEXT_ACTION=WAIT_FOR_TECHNICAL_REVIEW`
+
 ## R6 current cross-module scope state
 
 R6 closed the last role-scope inconsistency before P1-T02. Vehicles,
