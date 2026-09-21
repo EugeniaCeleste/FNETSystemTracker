@@ -325,6 +325,60 @@ mantiene `MOBILE_NAV_OPEN=PASS`, `MOBILE_NAV_CLOSE=PASS` y
 `PRODUCTION_TOUCHED=NO`
 `NEXT_ACTION=WAIT_FOR_TECHNICAL_REVIEW`
 
+## HOTFIX-DASHBOARD-MOBILE-01 — Plan de hoy / task row overflow
+
+Se auditó y corrigió exclusivamente el overflow mobile de las filas de tarea
+dentro de `Plan de hoy`. La evidencia manual de 390x844 mostró un `.task-list`
+de 316.667px con un track implícito de 384.458px y `.task-row` de 384.458px,
+causando que el botón `+` quedara parcialmente fuera del panel.
+
+La causa fue el mínimo automático intrínseco del track implícito de CSS Grid y
+el `min-width:auto` del item flex. El hotfix agrega únicamente
+`grid-template-columns:minmax(0, 1fr)` para `.task-list` y `min-width:0` para
+`.task-row` en el override responsive de hasta 820px. No se agregaron reglas
+globales de overflow, `100vw`, clipping ni truncamiento.
+
+`HOTFIX_STATUS=CLOSED_TESTING_CERTIFIED`
+
+`MOBILE_390_MANUAL=PASS`
+
+`DOCUMENT_HORIZONTAL_OVERFLOW=NO`
+
+La certificación manual real en Chrome DevTools para 390x844 confirmó después
+del fix: `clientWidth=390`, `scrollWidth=390`, `.task-list` de
+`316.66668701171875px`, track de `316.667px`, `.task-row` de
+`316.66668701171875px`, `min-width=0px` y `rowActionRight=353.3333435058594px`.
+Los botones `+` quedaron completamente visibles y `Plan de hoy` permanece
+contenido dentro del panel.
+
+`TASK_LIST_RULE_AFTER=grid-template-columns:minmax(0, 1fr)`
+
+`TASK_ROW_MIN_WIDTH_AFTER=0`
+
+`BASELINE_TESTS=118/118`
+
+`FINAL_TESTS=118/118`
+
+`TSC=PASS`
+
+`ESLINT=PASS`
+
+`BUILD=PASS`
+
+`P1_T02_STATUS=CLOSED_TESTING_CERTIFIED`
+
+`P1_T03_TOUCHED=NO`
+
+`DATABASE_WRITTEN=NO`
+
+`MIGRATIONS_RUN=NO`
+
+`LIVE_INTEGRATIONS_USED=NO`
+
+`PRODUCTION_TOUCHED=NO`
+
+`NEXT_ACTION=WAIT_FOR_MANUAL_MOBILE_RETEST`
+
 ## R6 current cross-module scope state
 
 R6 closed the last role-scope inconsistency before P1-T02. Vehicles,
