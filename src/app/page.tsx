@@ -12,7 +12,7 @@ import {
   mockScopeForRole, mockTechnicians, mockUsers, mockVehicles, mockZones, mockZoneMetrics, scopedResourceForZone, toDateString,
 } from "@/mocks";
 import { TaskCriticality, TaskStatus, TaskType, UserRole } from "@/contracts";
-import type { PendingVisit, PostgresQuote, PostgresSupply, SyncedData, Task } from "@/contracts";
+import type { PendingVisit, PostgresQuote, PostgresSupply, SyncedData, Task, User } from "@/contracts";
 import { LiveDashboardView as LiveDashboard } from "@/components/live-dashboard";
 import { RoleExperienceSummary } from "@/components/role-experience-summary";
 import { GuardPlanningView, TechnicianOperationsSummary } from "@/components/guard-planning-view";
@@ -78,6 +78,38 @@ function LoginScreen({ onLogin }: { onLogin: (role: UserRole) => void }) {
   return <main className="login-shell"><section className="login-brand-panel"><div className="brand-lockup large"><span className="brand-mark">F</span><span>FNET</span></div><div className="login-hero-copy"><p className="eyebrow">Sistema interno de operaciones</p><h1>Todo el trabajo de campo, <em>en movimiento.</em></h1><p className="muted-copy">Planificá, coordiná y seguí cada visita técnica desde una única vista operativa.</p></div><div className="login-signal"><span className="signal-dot" /> Sincronizado con Sytex · última actualización hace 8 min</div></section><section className="login-card-wrap"><div className="login-card"><div className="mobile-brand brand-lockup"><span className="brand-mark">F</span><span>FNET</span></div><p className="eyebrow">Acceso de demostración</p><h2>Ingresar al tracker</h2><p className="login-description">Elegí un perfil para recorrer la experiencia de cada rol.</p><div className="demo-role-list"><button className="demo-role" onClick={() => onLogin(UserRole.COORDINATOR)}><span className="role-icon coordinator"><Users size={18} /></span><span><strong>Coordinador Demo</strong><small>Planificación y equipos</small></span><ArrowUpRight size={17} /></button><button className="demo-role" onClick={() => onLogin(UserRole.MANAGER)}><span className="role-icon coordinator"><BriefcaseBusiness size={18} /></span><span><strong>Gerente Demo</strong><small>Consolidado regional</small></span><ArrowUpRight size={17} /></button><button className="demo-role" onClick={() => onLogin(UserRole.TECHNICIAN)}><span className="role-icon technician"><MapPin size={18} /></span><span><strong>Técnico Demo</strong><small>Mi agenda y ruta del día</small></span><ArrowUpRight size={17} /></button><button className="demo-role" onClick={() => onLogin(UserRole.ADMIN)}><span className="role-icon admin"><Settings2 size={18} /></span><span><strong>Administrador Demo</strong><small>Vista global del sistema</small></span><ArrowUpRight size={17} /></button></div><div className="login-footer-note"><ShieldCheck size={15} /> Roles centralizados · datos demo para navegación segura</div></div></section></main>;
 }
 
+function RealLoginScreen({ onLogin }: { onLogin: (user: User) => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const payload = await response.json() as { user?: User; code?: string };
+      if (!response.ok || !payload.user) {
+        setError(payload.code === "INVALID_CREDENTIALS" ? "Correo o contraseña incorrectos." : payload.code === "ROLE_SCOPE_NOT_READY" ? "El acceso para este rol todavía no está habilitado." : payload.code === "TOO_MANY_ATTEMPTS" ? "Hubo muchos intentos. Esperá unos minutos y volvé a probar." : "No fue posible iniciar sesión.");
+        return;
+      }
+      onLogin(payload.user);
+    } catch {
+      setError("No fue posible conectar con el servidor.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return <main className="login-shell"><section className="login-brand-panel"><div className="brand-lockup large"><span className="brand-mark">F</span><span>FNET</span></div><div className="login-hero-copy"><p className="eyebrow">Sistema interno de operaciones</p><h1>Todo el trabajo de campo, <em>en movimiento.</em></h1><p className="muted-copy">Acceso protegido para administración. Los demás roles se habilitarán al completar sus alcances.</p></div><div className="login-signal"><span className="signal-dot" /> Sesión segura · acceso según rol</div></section><section className="login-card-wrap"><form className="login-card login-form" onSubmit={submit}><div className="mobile-brand brand-lockup"><span className="brand-mark">F</span><span>FNET</span></div><p className="eyebrow">Acceso interno</p><h2>Ingresar al tracker</h2><p className="login-description">Usá la cuenta administradora configurada para la prueba inicial.</p><label><span>Correo</span><input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label><span>Contraseña</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>{error && <div className="login-error">{error}</div>}<button className="button primary login-submit" type="submit" disabled={submitting}>{submitting ? "Ingresando…" : "Ingresar"}</button><div className="login-footer-note"><ShieldCheck size={15} /> Credenciales protegidas · sesión privada</div></form></section></main>;
+}
+
 function Sidebar({ activeView, setActiveView, role, onLogout, collapsed, setCollapsed }: { activeView: ViewKey; setActiveView: (view: ViewKey) => void; role: UserRole; onLogout: () => void; collapsed: boolean; setCollapsed: (value: boolean) => void }) {
   if (!useMockData) return <LiveSidebar activeView={activeView} setActiveView={setActiveView} role={role} onLogout={onLogout} collapsed={collapsed} setCollapsed={setCollapsed} />;
   const roleNavigation = navigation.filter(({ key }) => role !== UserRole.TECHNICIAN || key !== "quotes");
@@ -94,9 +126,9 @@ function Topbar(props: { role: UserRole; setRole: (role: UserRole) => void; onOp
 }
 
 function LiveTopbar({ role, setRole, onOpenMobileMenu, onRefresh, syncing }: { role: UserRole; setRole: (role: UserRole) => void; onOpenMobileMenu: () => void; onRefresh: () => void; syncing: boolean }) {
-  const [roleOpen, setRoleOpen] = useState(false);
+  void setRole;
   const roleTitle = roleLabel(role);
-  return <header className="topbar"><button className="mobile-menu-button icon-button" onClick={onOpenMobileMenu}><Menu size={20} /></button><div className="topbar-title"><span className="eyebrow">Centro de control</span><strong>FNET System Tracker</strong></div><div className="topbar-actions"><button className={`sync-button ${syncing ? "syncing" : ""}`} onClick={onRefresh}><RefreshCw size={15} /> <span>{syncing ? "Consultando" : "PostgreSQL"}</span></button><div className="role-switcher-wrap"><button className="role-switcher" onClick={() => setRoleOpen(!roleOpen)}><span className="avatar avatar-purple">{role === UserRole.ADMIN ? "AD" : role === UserRole.MANAGER ? "GE" : role === UserRole.TECHNICIAN ? "TD" : "CO"}</span><span><b>{roleTitle}</b><small>Alcance activo</small></span><ChevronDown size={15} /></button>{roleOpen && <div className="role-popover">{([UserRole.COORDINATOR, UserRole.MANAGER, UserRole.TECHNICIAN, UserRole.ADMIN] as UserRole[]).map((nextRole) => <button key={nextRole} onClick={() => { setRole(nextRole); setRoleOpen(false); }} className={role === nextRole ? "selected" : ""}>{nextRole === UserRole.ADMIN ? "Administrador" : nextRole === UserRole.MANAGER ? "Gerente" : nextRole === UserRole.TECHNICIAN ? "Técnico" : "Coordinador"}<span>{role === nextRole ? "Activo" : "Disponible"}</span></button>)}</div>}</div><button className="notification-button icon-button"><Bell size={19} /></button></div></header>;
+  return <header className="topbar"><button className="mobile-menu-button icon-button" onClick={onOpenMobileMenu}><Menu size={20} /></button><div className="topbar-title"><span className="eyebrow">Centro de control</span><strong>FNET System Tracker</strong></div><div className="topbar-actions"><button className={`sync-button ${syncing ? "syncing" : ""}`} onClick={onRefresh}><RefreshCw size={15} /> <span>{syncing ? "Consultando" : "PostgreSQL"}</span></button><div className="role-switcher"><span className="avatar avatar-purple">{role === UserRole.ADMIN ? "AD" : role === UserRole.MANAGER ? "GE" : role === UserRole.TECHNICIAN ? "TD" : "CO"}</span><span><b>{roleTitle}</b><small>Alcance asignado</small></span></div><button className="notification-button icon-button"><Bell size={19} /></button></div></header>;
 }
 
 function MockTopbar({ role, setRole, onOpenMobileMenu, onRefresh, syncing }: { role: UserRole; setRole: (role: UserRole) => void; onOpenMobileMenu: () => void; onRefresh: () => void; syncing: boolean }) {
@@ -169,18 +201,29 @@ function LiveUnavailableView({ title }: { title: string }) { return <div classNa
 function VehiclesView({ vehicles }: { vehicles: typeof mockVehicles }) { if (!useMockData) return <LiveUnavailableView title="Vehículos" />; return <><div className="page-heading"><div><p className="eyebrow">Flota operativa · estructura demo</p><h1>Vehículos</h1><p className="page-subtitle">Preparado para integrar MaxTracker cuando esté disponible.</p></div><button className="button secondary"><Filter size={16} /> Filtrar estado</button></div><section className="panel table-panel"><div className="table-toolbar"><div><p className="eyebrow">{vehicles.length} unidades</p><h2>Flota asignada</h2></div><span className="toolbar-spacer" /><button className="button primary small"><Plus size={15} /> Agregar vehículo</button></div><div className="data-table vehicles-table"><div className="data-table-head"><span>Vehículo</span><span>Patente</span><span>Kilometraje</span><span>Estado</span><span>Cuadrilla</span><span>Fuente</span></div>{vehicles.map((vehicle) => { const tech = vehicle.assignedTechnicianId ? mockTechnicians.find((item) => item.id === vehicle.assignedTechnicianId) : null; return <div className="data-table-row" key={vehicle.id}><div className="vehicle-cell"><span className="vehicle-icon"><Truck size={17} /></span><span><strong>{vehicle.brand} {vehicle.model}</strong><small>{vehicle.id.toUpperCase()}</small></span></div><strong>{vehicle.plate}</strong><span className="table-muted">{vehicle.mileageKm.toLocaleString("es-AR")} km</span><span className={`fleet-status ${vehicle.status === "ACTIVE" ? "active" : vehicle.status === "MAINTENANCE" ? "maintenance" : "out"}`}><span className="status-dot" />{vehicle.status === "ACTIVE" ? "Activo" : vehicle.status === "MAINTENANCE" ? "Mantenimiento" : "Fuera de servicio"}</span><span className="table-muted">{tech ? shortName(tech.name) : "Sin asignar"}</span><span className="source-tag">MaxTracker <span>demo</span></span></div>; })}</div></section></>; }
 
 export default function Home() {
-  const [loggedIn, setLoggedIn] = useState(true); const [role, setRole] = useState<UserRole>(UserRole.COORDINATOR); const [activeView, setActiveView] = useState<ViewKey>("dashboard"); const [sidebarCollapsed, setSidebarCollapsed] = useState(false); const [mobileMenu, setMobileMenu] = useState(false); const [scheduledIds, setScheduledIds] = useState<string[]>(["task-C0001", "task-P0001", "task-P0002"]); const [toast, setToast] = useState(""); const [syncing, setSyncing] = useState(false); const [liveData, setLiveData] = useState<SyncedData | null>(null); const [liveState, setLiveState] = useState<"idle" | "loading" | "ready" | "error">(useMockData ? "idle" : "loading"); const [reloadToken, setReloadToken] = useState(0);
+  const [loggedIn, setLoggedIn] = useState(useMockData); const [authLoading, setAuthLoading] = useState(!useMockData); const [role, setRole] = useState<UserRole>(UserRole.COORDINATOR); const [activeView, setActiveView] = useState<ViewKey>("dashboard"); const [sidebarCollapsed, setSidebarCollapsed] = useState(false); const [mobileMenu, setMobileMenu] = useState(false); const [scheduledIds, setScheduledIds] = useState<string[]>(["task-C0001", "task-P0001", "task-P0002"]); const [toast, setToast] = useState(""); const [syncing, setSyncing] = useState(false); const [liveData, setLiveData] = useState<SyncedData | null>(null); const [liveState, setLiveState] = useState<"idle" | "loading" | "ready" | "error">(useMockData ? "idle" : "loading"); const [reloadToken, setReloadToken] = useState(0);
   useEffect(() => { if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined); }, []);
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(""), 2800); return () => window.clearTimeout(timer); }, [toast]);
   useEffect(() => {
     if (useMockData) return;
+    void fetch("/api/auth/me", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok) throw new Error("unauthenticated");
+      return response.json() as Promise<{ user: User }>;
+    }).then(({ user }) => { setRole(user.role); setLoggedIn(true); }).catch(() => setLoggedIn(false)).finally(() => setAuthLoading(false));
+  }, []);
+  useEffect(() => {
+    if (useMockData || authLoading || loggedIn) return;
+    void fetch("/api/auth/logout", { method: "POST" });
+  }, [authLoading, loggedIn]);
+  useEffect(() => {
+    if (useMockData || !loggedIn) return;
     let cancelled = false;
     void fetch("/api/synced-data", { cache: "no-store" }).then(async (response) => {
       if (!response.ok) throw new Error("database_unavailable");
       return response.json() as Promise<SyncedData>;
     }).then((data) => { if (!cancelled) { setLiveData(data); setLiveState("ready"); } }).catch(() => { if (!cancelled) { setLiveData(null); setLiveState("error"); } }).finally(() => { if (!cancelled) setSyncing(false); });
     return () => { cancelled = true; };
-  }, [reloadToken]);
+  }, [reloadToken, loggedIn]);
   const activeScope = useMemo(() => mockScopeForRole(role), [role]);
   const visibleTasks = useMemo(() => filterTasksForScope(useMockData ? mockTasks : liveData?.tasks ?? [], activeScope), [activeScope, liveData]);
   const visibleZones = useMemo(() => useMockData ? filterZonesForScope(mockZones, activeScope) : [], [activeScope]);
@@ -189,7 +232,8 @@ export default function Home() {
   const liveSupplyRows = useMemo<SupplyRow[]>(() => (liveData?.insumos ?? []).map((row: PostgresSupply) => ({ quantity: row.quantity, description: row.description ?? "Sin descripción", site: row.siteName ?? row.siteCode ?? "Sin sitio informado", form: row.formulario, provider: row.provider ?? "Sin proveedor informado", date: row.lastEditedAt ? new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(row.lastEditedAt)) : "Sin fecha", status: row.status ?? "Sin estado" })), [liveData]);
   const assignTask = (task: Task) => { setScheduledIds((current) => current.includes(task.id) ? current.filter((id) => id !== task.id) : [...current, task.id]); setToast(scheduledIds.includes(task.id) ? `${task.taskCode} quitada del cronograma` : `${task.taskCode} asignada a la cuadrilla de ${zoneName(task.zoneId)}`); };
   const refresh = () => { if (useMockData) { setSyncing(true); window.setTimeout(() => { setSyncing(false); setToast("Datos demo actualizados"); }, 850); } else { setSyncing(true); setReloadToken((token) => token + 1); } };
-  if (!loggedIn) return <LoginScreen onLogin={(nextRole) => { setRole(nextRole); setLoggedIn(true); setToast("Sesión demo iniciada"); }} />;
+  if (authLoading) return <main className="auth-loading"><span className="signal-dot" /> Verificando sesión segura…</main>;
+  if (!loggedIn) return useMockData ? <LoginScreen onLogin={(nextRole) => { setRole(nextRole); setLoggedIn(true); setToast("Sesión demo iniciada"); }} /> : <RealLoginScreen onLogin={(user) => { setRole(user.role); setLoggedIn(true); setToast(`Bienvenida, ${user.name}`); }} />;
   const currentMeta = viewMeta[activeView];
   const roleNavigation = navigation.filter(({ key }) => role !== UserRole.TECHNICIAN || key !== "quotes");
   const dataSource = useMockData ? "mock" : "postgresql";
