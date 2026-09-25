@@ -5,7 +5,7 @@ import { z } from "zod";
 import { databaseUserToContract, SESSION_COOKIE, SESSION_SECONDS } from "@/server/auth";
 import { getPrismaClient } from "@/server/prisma";
 import { createLoginSession } from "@/server/services/auth-sessions";
-import { clearLoginRateLimit, getLoginRateLimit, LOGIN_ACCOUNT_LIMIT, LOGIN_IP_LIMIT, makeLoginRateLimitKey, recordFailedLogin } from "@/server/services/login-rate-limit";
+import { clearLoginRateLimit, consumeLoginRateLimit, LOGIN_ACCOUNT_LIMIT, LOGIN_IP_LIMIT, makeLoginRateLimitKey } from "@/server/services/login-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -74,16 +74,17 @@ export async function POST(request: Request) {
     const ipKey = makeLoginRateLimitKey("ip", ip);
     const accountKey = makeLoginRateLimitKey("account", parsed.data.email);
     const [ipLimit, accountLimit] = await Promise.all([
-      getLoginRateLimit([{ key: ipKey, maximum: LOGIN_IP_LIMIT }]),
-      getLoginRateLimit([{ key: accountKey, maximum: LOGIN_ACCOUNT_LIMIT }]),
+      consumeLoginRateLimit(ipKey, LOGIN_IP_LIMIT),
+      consumeLoginRateLimit(accountKey, LOGIN_ACCOUNT_LIMIT),
     ]);
-    if (ipLimit.limited) return json({ code: "TOO_MANY_ATTEMPTS" }, 429, { "Retry-After": String(ipLimit.retryAfterSeconds) });
+    if (ipLimit.limited || accountLimit.limited) {
+      const retryAfterSeconds = Math.max(ipLimit.retryAfterSeconds, accountLimit.retryAfterSeconds);
+      return json({ code: "TOO_MANY_ATTEMPTS" }, 429, { "Retry-After": String(retryAfterSeconds) });
+    }
 
     const row = await getPrismaClient().app_users.findUnique({ where: { email: parsed.data.email } });
     const passwordMatches = await compare(parsed.data.password, row?.passwordHash ?? DUMMY_PASSWORD_HASH);
     if (!row || !row.active || row.role !== "ADMIN" || !passwordMatches) {
-      await recordFailedLogin([ipKey, accountKey]);
-      if (accountLimit.limited) return json({ code: "TOO_MANY_ATTEMPTS" }, 429, { "Retry-After": String(accountLimit.retryAfterSeconds) });
       return json({ code: "INVALID_CREDENTIALS" }, 401);
     }
 
