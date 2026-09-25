@@ -96,7 +96,7 @@ function RealLoginScreen({ onLogin }: { onLogin: (user: User) => void }) {
       });
       const payload = await response.json() as { user?: User; code?: string };
       if (!response.ok || !payload.user) {
-        setError(payload.code === "INVALID_CREDENTIALS" ? "Correo o contraseña incorrectos." : payload.code === "ROLE_SCOPE_NOT_READY" ? "El acceso para este rol todavía no está habilitado." : "No fue posible iniciar sesión.");
+        setError(payload.code === "INVALID_CREDENTIALS" ? "Correo o contraseña incorrectos." : payload.code === "ROLE_SCOPE_NOT_READY" ? "El acceso para este rol todavía no está habilitado." : payload.code === "TOO_MANY_ATTEMPTS" ? "Hubo muchos intentos. Esperá unos minutos y volvé a probar." : "No fue posible iniciar sesión.");
         return;
       }
       onLogin(payload.user);

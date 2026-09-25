@@ -1,47 +1,33 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { UserRole, type User } from "@/contracts";
-import { createSessionToken, databaseUserToContract, verifySessionToken } from "./auth";
+import { createSessionToken, databaseUserToContract, hashSessionToken, isSessionTokenFormat } from "./auth";
 
-const previousSecret = process.env.AUTH_SECRET;
-
-afterEach(() => {
-  if (previousSecret === undefined) delete process.env.AUTH_SECRET;
-  else process.env.AUTH_SECRET = previousSecret;
-});
-
-describe("auth session", () => {
-  it("signs and verifies the assigned role", async () => {
-    process.env.AUTH_SECRET = "test-secret-with-at-least-thirty-two-characters";
-    const user: User = {
-      id: "user-1",
-      email: "euge@fnet.local",
-      name: "Euge",
-      role: UserRole.ADMIN,
-      technicianId: null,
-      coordinatorId: null,
-      active: true,
-    };
-
-    const claims = await verifySessionToken(await createSessionToken(user));
-    expect(claims).toMatchObject({ sub: "user-1", email: "euge@fnet.local", role: UserRole.ADMIN });
+describe("server-side sessions", () => {
+  it("creates a fresh opaque token with enough entropy for a session identifier", () => {
+    const first = createSessionToken();
+    const second = createSessionToken();
+    expect(first).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(second).not.toBe(first);
+    expect(isSessionTokenFormat(first)).toBe(true);
   });
 
-  it("rejects a token signed with a different secret", async () => {
-    process.env.AUTH_SECRET = "first-secret-with-at-least-thirty-two-characters";
-    const token = await createSessionToken({
-      id: "user-1",
-      email: "euge@fnet.local",
-      name: "Euge",
-      role: UserRole.ADMIN,
-      technicianId: null,
-      coordinatorId: null,
-      active: true,
-    });
-    process.env.AUTH_SECRET = "second-secret-with-at-least-thirty-two-characters";
-    expect(await verifySessionToken(token)).toBeNull();
+  it("stores only a stable one-way digest of the session token", () => {
+    const token = createSessionToken();
+    expect(hashSessionToken(token)).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashSessionToken(token)).toBe(hashSessionToken(token));
+    expect(hashSessionToken(token)).not.toBe(token);
+    expect(isSessionTokenFormat("short-token")).toBe(false);
   });
 
-  it("rejects unknown database roles", () => {
+  it("rejects roles that are not part of the current contract", () => {
     expect(() => databaseUserToContract({ id: "x", email: "x@fnet.local", name: "X", role: "OWNER", technicianId: null, coordinatorId: null, active: true })).toThrow("INVALID_USER_ROLE");
+  });
+
+  it("keeps the current user contract fields when reading the database row", () => {
+    const user: User = {
+      id: "user-1", email: "admin@fnet.local", name: "FNET Admin", role: UserRole.ADMIN,
+      technicianId: null, coordinatorId: null, active: true,
+    };
+    expect(databaseUserToContract({ ...user })).toEqual(user);
   });
 });

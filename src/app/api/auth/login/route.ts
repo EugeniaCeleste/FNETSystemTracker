@@ -1,37 +1,99 @@
 import { compare } from "bcryptjs";
+import { isIP } from "node:net";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createSessionToken, databaseUserToContract, SESSION_COOKIE, SESSION_SECONDS } from "@/server/auth";
-import { canAccessGlobalData } from "@/server/access";
+import { databaseUserToContract, SESSION_COOKIE, SESSION_SECONDS } from "@/server/auth";
 import { getPrismaClient } from "@/server/prisma";
-import { ensureBootstrapAdmin } from "@/server/services/auth-schema";
+import { createLoginSession } from "@/server/services/auth-sessions";
+import { clearLoginRateLimit, getLoginRateLimit, LOGIN_ACCOUNT_LIMIT, LOGIN_IP_LIMIT, makeLoginRateLimitKey, recordFailedLogin } from "@/server/services/login-rate-limit";
 
 export const dynamic = "force-dynamic";
 
 const credentialsSchema = z.object({
   email: z.string().trim().email().max(320).transform((value) => value.toLowerCase()),
-  password: z.string().min(1).max(200),
+  password: z.string().min(1).max(128),
 });
+const DUMMY_PASSWORD_HASH = "$2b$12$vGF4wvbz9UdKxF6e0uSxG.UQ/pCJixlRJeLB2ytKLNPJXhRL4Le/.";
+const MAX_BODY_BYTES = 8 * 1024;
+
+async function readLimitedJson(request: Request): Promise<{ value?: unknown; tooLarge: boolean }> {
+  const reader = request.body?.getReader();
+  if (!reader) return { tooLarge: false };
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return { tooLarge: true };
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return { value: JSON.parse(new TextDecoder().decode(body)), tooLarge: false };
+  } catch {
+    return { tooLarge: false };
+  }
+}
+
+function clientIp(request: Request): string | null {
+  const forwardedIp = request.headers.get("x-real-ip")?.trim();
+  if (process.env.NODE_ENV === "production") return forwardedIp && isIP(forwardedIp) ? forwardedIp : null;
+  return forwardedIp && isIP(forwardedIp) ? forwardedIp : "local-development";
+}
+
+function json(body: unknown, status: number, headers?: HeadersInit) {
+  return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store", ...headers } });
+}
 
 export async function POST(request: Request) {
-  const parsed = credentialsSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ code: "INVALID_CREDENTIALS" }, { status: 400 });
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(request.url).origin) return json({ code: "FORBIDDEN" }, 403);
+  if (request.headers.get("sec-fetch-site") === "cross-site") return json({ code: "FORBIDDEN" }, 403);
+  if (request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") return json({ code: "UNSUPPORTED_MEDIA_TYPE" }, 415);
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) return json({ code: "PAYLOAD_TOO_LARGE" }, 413);
+
+  const { value, tooLarge } = await readLimitedJson(request);
+  if (tooLarge) return json({ code: "PAYLOAD_TOO_LARGE" }, 413);
+  const parsed = credentialsSchema.safeParse(value);
+  if (!parsed.success || Buffer.byteLength(parsed.data?.password ?? "", "utf8") > 72) return json({ code: "INVALID_CREDENTIALS" }, 400);
+
+  const ip = clientIp(request);
+  if (!ip) return json({ code: "AUTH_UNAVAILABLE" }, 503);
 
   try {
-    await ensureBootstrapAdmin();
+    const ipKey = makeLoginRateLimitKey("ip", ip);
+    const accountKey = makeLoginRateLimitKey("account", parsed.data.email);
+    const [ipLimit, accountLimit] = await Promise.all([
+      getLoginRateLimit([{ key: ipKey, maximum: LOGIN_IP_LIMIT }]),
+      getLoginRateLimit([{ key: accountKey, maximum: LOGIN_ACCOUNT_LIMIT }]),
+    ]);
+    if (ipLimit.limited) return json({ code: "TOO_MANY_ATTEMPTS" }, 429, { "Retry-After": String(ipLimit.retryAfterSeconds) });
+
     const row = await getPrismaClient().app_users.findUnique({ where: { email: parsed.data.email } });
-    if (!row || !row.active || !(await compare(parsed.data.password, row.passwordHash))) {
-      return NextResponse.json({ code: "INVALID_CREDENTIALS" }, { status: 401 });
+    const passwordMatches = await compare(parsed.data.password, row?.passwordHash ?? DUMMY_PASSWORD_HASH);
+    if (!row || !row.active || row.role !== "ADMIN" || !passwordMatches) {
+      await recordFailedLogin([ipKey, accountKey]);
+      if (accountLimit.limited) return json({ code: "TOO_MANY_ATTEMPTS" }, 429, { "Retry-After": String(accountLimit.retryAfterSeconds) });
+      return json({ code: "INVALID_CREDENTIALS" }, 401);
     }
 
     const user = databaseUserToContract(row);
-    if (!canAccessGlobalData(user.role)) {
-      return NextResponse.json({ code: "ROLE_SCOPE_NOT_READY" }, { status: 403 });
-    }
-    const response = NextResponse.json({ user, expiresAt: new Date(Date.now() + SESSION_SECONDS * 1000).toISOString() });
+    const session = await createLoginSession(user.id);
+    await Promise.all([clearLoginRateLimit(ipKey), clearLoginRateLimit(accountKey)]);
+    const response = json({ user, expiresAt: session.expiresAt.toISOString() }, 200);
     response.cookies.set({
       name: SESSION_COOKIE,
-      value: await createSessionToken(user),
+      value: session.token,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -39,11 +101,7 @@ export async function POST(request: Request) {
       maxAge: SESSION_SECONDS,
     });
     return response;
-  } catch (error) {
-    const code = error instanceof Error ? error.message : "AUTH_UNAVAILABLE";
-    if (code === "BOOTSTRAP_ADMIN_NOT_CONFIGURED" || code === "BOOTSTRAP_ADMIN_EMAIL_ALREADY_IN_USE" || code === "AUTH_SECRET_NOT_CONFIGURED") {
-      return NextResponse.json({ code }, { status: 503 });
-    }
-    return NextResponse.json({ code: "AUTH_UNAVAILABLE" }, { status: 503 });
+  } catch {
+    return json({ code: "AUTH_UNAVAILABLE" }, 503);
   }
 }

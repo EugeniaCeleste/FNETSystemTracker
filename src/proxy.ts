@@ -1,24 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/server/auth";
-import { canAccessGlobalData } from "@/server/access";
+import { isSessionTokenFormat, SESSION_COOKIE } from "@/server/auth";
 
-export async function proxy(request: NextRequest) {
-  const path = request.nextUrl.pathname;
-  if (path.startsWith("/api/auth/") || path === "/api/health") return NextResponse.next();
+const publicApiPaths = new Set(["/api/auth/login", "/api/auth/logout", "/api/auth/me", "/api/health"]);
 
-  try {
-    const token = request.cookies.get(SESSION_COOKIE)?.value;
-    const claims = token ? await verifySessionToken(token) : null;
-    if (!claims) {
-      return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
-    }
-    if (!canAccessGlobalData(claims.role)) {
-      return NextResponse.json({ code: "ROLE_SCOPE_NOT_READY" }, { status: 403 });
-    }
-    return NextResponse.next();
-  } catch {
-    return NextResponse.json({ code: "AUTH_NOT_CONFIGURED" }, { status: 503 });
+export function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname.replace(/\/$/, "") || "/";
+  if (publicApiPaths.has(path)) return NextResponse.next();
+
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!token || !isSessionTokenFormat(token)) {
+    return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
+  return NextResponse.next();
 }
 
 export const config = {
