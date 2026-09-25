@@ -1,10 +1,9 @@
 import { defineConfig, env } from "prisma/config";
 import { existsSync } from "node:fs";
 
-const nodeProcess = process as NodeJS.Process & {
-  loadEnvFile?: (path?: string) => void;
-};
-
+// Prisma CLI does not load Next.js's .env.local convention automatically.
+// Keep this explicit and server-side so DATABASE_URL never enters the client.
+const nodeProcess = process as NodeJS.Process & { loadEnvFile?: (path?: string) => void };
 if (existsSync(".env.local")) {
   nodeProcess.loadEnvFile?.(".env.local");
 }

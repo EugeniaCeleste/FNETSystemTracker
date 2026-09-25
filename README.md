@@ -16,9 +16,16 @@ Copiar `.env.example` a `.env.local`:
 NEXT_PUBLIC_USE_MOCK_API=true
 DATABASE_URL=
 AUTH_SECRET=
+BOOTSTRAP_ADMIN_EMAIL=
+BOOTSTRAP_ADMIN_PASSWORD=
+BOOTSTRAP_ADMIN_NAME=Administradora FNET
 ```
 
 `DATABASE_URL` se mantiene del lado servidor. Con `NEXT_PUBLIC_USE_MOCK_API=false`, las vistas operativas consultan PostgreSQL Railway; con `true`, usan exclusivamente el modo demo explícito. Nunca se mezclan fuentes y la app no crea ni modifica las tablas oficiales `correctivos`, `preventivos`, `cotizaciones` e `insumos`.
+
+`AUTH_SECRET` debe ser un secreto aleatorio de al menos 32 caracteres. La migración aditiva `prisma/migrations/20260924_add_app_users/migration.sql` crea la tabla propia `app_users`; debe aplicarse explícitamente a la base FNET antes del primer acceso real. La app no ejecuta DDL ni migraciones automáticamente. En el primer login, `BOOTSTRAP_ADMIN_*` crea una cuenta administradora si todavía no existe ninguna; la contraseña se guarda como hash bcrypt y la sesión viaja en una cookie HttpOnly de 30 minutos.
+
+Hasta que el filtrado por `UserScope` esté implementado en todos los endpoints, solo `ADMIN` puede iniciar sesión y consultar los datos reales. Las cuentas `TECHNICIAN`, `COORDINATOR` y `MANAGER` reciben `ROLE_SCOPE_NOT_READY`; el bloqueo está en el servidor y no depende de ocultar opciones en la interfaz. No habilitar usuarios de esos roles todavía.
 
 ## Instalación y desarrollo
 
@@ -72,6 +79,16 @@ npm run build
 ## Deploy
 
 Configurar `DATABASE_URL` y `AUTH_SECRET` como secretos del entorno de deploy. Mantener las credenciales fuera del navegador y conservar el proceso n8n → PostgreSQL como capa de sincronización oficial con Sytex.
+
+Para habilitar la prueba real en Railway, en este orden:
+
+1. Confirmar que `DATABASE_URL` del servicio de la app referencia `FNET-Postgres`.
+2. Ejecutar una sola vez el SQL de `prisma/migrations/20260924_add_app_users/migration.sql` sobre esa base. No ejecutar una migración general sobre las tablas sincronizadas.
+3. Configurar `AUTH_SECRET` (aleatorio, mínimo 32 caracteres) y `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` (mínimo 12 caracteres) y, opcionalmente, `BOOTSTRAP_ADMIN_NAME`.
+4. Cambiar `NEXT_PUBLIC_USE_MOCK_API` a `false` y desplegar de nuevo. Esta variable se incorpora durante la compilación.
+5. Iniciar sesión como Admin y revisar que la fuente indique PostgreSQL. Mantener la app en solo lectura.
+
+Si todavía no se aplicó el SQL o faltan secretos, dejar `NEXT_PUBLIC_USE_MOCK_API=true`: el acceso real no quedará operativo.
 
 ## Alcance futuro reservado
 

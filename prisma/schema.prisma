@@ -6,6 +6,22 @@ datasource db {
   provider = "postgresql"
 }
 
+model app_users {
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique
+  name          String
+  passwordHash  String   @map("password_hash")
+  role          String
+  technicianId  String?  @map("technician_id")
+  coordinatorId String?  @map("coordinator_id")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([role, active], map: "idx_app_users_role_active")
+  @@map("app_users")
+}
+
 model correctivos {
   id                              BigInt    @id @default(autoincrement())
   codigo                          String    @unique

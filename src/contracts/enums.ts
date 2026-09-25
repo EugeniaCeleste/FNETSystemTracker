@@ -54,8 +54,6 @@ export const ExternalSource = {
   SYTEX: "SYTEX",
   BIZFLOW: "BIZFLOW",
   MAXTRACKER: "MAXTRACKER",
-  INTRAOPERATIVA: "INTRAOPERATIVA",
-  OPPEN: "OPPEN",
   INTERNAL: "INTERNAL",
 } as const;
 export type ExternalSource = (typeof ExternalSource)[keyof typeof ExternalSource];
