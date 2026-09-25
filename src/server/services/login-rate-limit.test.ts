@@ -8,11 +8,12 @@ afterEach(() => {
 });
 
 describe("login throttling", () => {
-  it("limits after the threshold during the active window and releases after it", () => {
+  it("limits attempts after the allowed threshold and releases after the window", () => {
     const start = new Date("2026-09-25T12:00:00Z");
     expect(isLoginRateLimited(9, start, 10, new Date("2026-09-25T12:14:59Z"))).toBe(false);
-    expect(isLoginRateLimited(10, start, 10, new Date("2026-09-25T12:14:59Z"))).toBe(true);
-    expect(isLoginRateLimited(10, start, 10, new Date("2026-09-25T12:15:00Z"))).toBe(false);
+    expect(isLoginRateLimited(10, start, 10, new Date("2026-09-25T12:14:59Z"))).toBe(false);
+    expect(isLoginRateLimited(11, start, 10, new Date("2026-09-25T12:14:59Z"))).toBe(true);
+    expect(isLoginRateLimited(11, start, 10, new Date("2026-09-25T12:15:00Z"))).toBe(false);
   });
 
   it("uses a secret HMAC and keeps IP and account buckets separate", () => {
