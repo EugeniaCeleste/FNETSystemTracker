@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "auth:bootstrap-admin": "tsx scripts/bootstrap-admin.ts"
+    "auth:bootstrap-admin": "tsx scripts/bootstrap-admin.ts",
+    "db:prepare-app": "node scripts/prepare-app-database.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
