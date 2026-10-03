@@ -83,13 +83,27 @@ Configurar `DATABASE_URL` y `AUTH_SECRET` como secretos del entorno de deploy. M
 Para habilitar la prueba real en Railway, en este orden:
 
 1. Confirmar que `DATABASE_URL` del servicio de la app referencia `FNET-Postgres`.
-2. Ejecutar una sola vez el SQL de `prisma/migrations/20260924_add_app_users/migration.sql` sobre esa base. No ejecutar una migración general sobre las tablas sincronizadas.
+2. Ejecutar `npm run db:prepare-app` sobre esa base, o configurarlo como comando Pre-Deploy de Railway. Prepara las tablas propias de FNET en una transacción y admite instalaciones previas compatibles. No ejecuta una migración general sobre las tablas sincronizadas.
 3. Configurar `AUTH_SECRET` con al menos 32 bytes aleatorios y, temporalmente, las variables `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` (mínimo 15 caracteres y hasta 72 bytes) y `BOOTSTRAP_ADMIN_NAME`.
 4. Desde un entorno confiable conectado a la misma `DATABASE_URL`, ejecutar `npm run auth:bootstrap-admin` una sola vez y retirar `BOOTSTRAP_ADMIN_*` después de confirmar el alta.
 5. Cambiar `NEXT_PUBLIC_USE_MOCK_API` a `false` y desplegar de nuevo. Esta variable se incorpora durante la compilación.
 6. Iniciar sesión como Admin y revisar que la fuente indique PostgreSQL. Mantener la app en solo lectura.
 
 Si todavía no se aplicó el SQL o faltan secretos, dejar `NEXT_PUBLIC_USE_MOCK_API=true`: el acceso real no quedará operativo.
+
+## Compras Mendel
+
+La ruta `/compras` está protegida para Admin. Desde allí se puede subir un CSV de transacciones, revisar altas/actualizaciones y confirmar la importación. El identificador de transacción de Mendel evita duplicados; las importaciones se registran con hash y conteos, sin conservar el archivo original.
+
+FNET guarda los datos operativos y contables necesarios para conciliar compras. Omite correos, identificaciones personales, datos de tarjeta y notas de auditoría. La exportación disponible no da una relación verificable entre transacciones, archivos de comprobantes e ítems de Intraoperativa: esos cruces quedan pendientes y el stock oficial no se modifica.
+
+La descarga diaria requiere que Mendel habilite una API o entrega SFTP para la cuenta. Hasta entonces, se puede repetir la exportación CSV y subirla desde `/compras`; las transacciones existentes se actualizan sin perder su estado interno de conciliación.
+
+## Insumos y despliegue en Railway
+
+El menú Insumos incorpora el demo de control de facturas con detalle, imágenes, seguimiento de carga/descarga, entregas a técnicos y consumos en uno o varios formularios. Las entregas abiertas desde 14 días requieren revisión. El demo guarda su estado en el navegador; la pestaña Registros Sytex conserva la fuente sincronizada.
+
+La guía [FNET en el Railway de Leo](docs/deploy-railway-leo.md) incluye servicios, variables, preparación de tablas propias, alta del Admin y conexión del flujo n8n a la base nueva.
 
 ## Alcance futuro reservado
 
